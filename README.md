@@ -47,4 +47,4 @@ python main.py
 
 These projects were built independently as part of placement year preparation for roles in business management, accounting & finance, and business analysis. Each project mirrors real-world deliverables expected in professional roles.
 
-**Contact:** [Your Name] | [Your Email] | [Your LinkedIn]
+**Contact:** [Bipin Maharjan] | [bipinmaharjan609@gmail.com] 
