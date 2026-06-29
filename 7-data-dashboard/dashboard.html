@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UK Retail Sales Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         background: #f0f2f5; color: #1a1a2e; }
+  header { background: #1a1a2e; color: white; padding: 1.2rem 2rem;
+           display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 1.2rem; font-weight: 600; }
+  header span { font-size: 0.8rem; opacity: 0.7; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem;
+              padding: 1.5rem 2rem 0; }
+  .kpi { background: white; border-radius: 10px; padding: 1.2rem 1.5rem;
+         border-left: 4px solid #2E86AB; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .kpi-label { font-size: 0.72rem; color: #666; text-transform: uppercase;
+               letter-spacing: 0.05em; margin-bottom: 4px; }
+  .kpi-value { font-size: 1.5rem; font-weight: 700; color: #1a1a2e; }
+  .kpi-sub   { font-size: 0.75rem; color: #888; margin-top: 3px; }
+  .kpi.green { border-left-color: #27ae60; }
+  .kpi.amber { border-left-color: #f39c12; }
+  .kpi.red   { border-left-color: #e74c3c; }
+  .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;
+                 padding: 1rem 2rem; }
+  .charts-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+                   padding: 0 2rem 2rem; }
+  .chart-card { background: white; border-radius: 10px; padding: 1.2rem;
+                box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .chart-card h3 { font-size: 0.85rem; color: #555; margin-bottom: 1rem;
+                   font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  canvas { max-height: 240px; }
+  footer { text-align: center; padding: 1rem; font-size: 0.75rem; color: #999; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 UK Retail Sales Dashboard — 2022 to 2024</h1>
+  <span>Business Analysis Project | Placement Portfolio</span>
+</header>
+
+<div class="kpi-grid">
+  <div class="kpi green">
+    <div class="kpi-label">Latest Month Sales</div>
+    <div class="kpi-value" id="kpi-latest">—</div>
+    <div class="kpi-sub">Total across all categories</div>
+  </div>
+  <div class="kpi green">
+    <div class="kpi-label">YoY Growth</div>
+    <div class="kpi-value" id="kpi-yoy">—</div>
+    <div class="kpi-sub">vs same month last year</div>
+  </div>
+  <div class="kpi amber">
+    <div class="kpi-label">Peak Month (Seasonal)</div>
+    <div class="kpi-value">December</div>
+    <div class="kpi-sub">+32% above annual average</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Top Category</div>
+    <div class="kpi-value">Food & Grocery</div>
+    <div class="kpi-sub">~36% of total sales</div>
+  </div>
+</div>
+
+<div class="charts-grid">
+  <div class="chart-card">
+    <h3>Total Monthly Sales Trend (£k)</h3>
+    <canvas id="trendChart"></canvas>
+  </div>
+  <div class="chart-card">
+    <h3>2024 Category Mix</h3>
+    <canvas id="pieChart"></canvas>
+  </div>
+</div>
+
+<div class="charts-bottom">
+  <div class="chart-card">
+    <h3>Year-on-Year Comparison (£k)</h3>
+    <canvas id="yoyChart"></canvas>
+  </div>
+  <div class="chart-card">
+    <h3>Category Breakdown (Stacked, £k)</h3>
+    <canvas id="stackedChart"></canvas>
+  </div>
+</div>
+
+<footer>Built with Chart.js | UK Retail Sales Simulation | Placement Portfolio Project 7</footer>
+
+<script>
+// ── Simulated data matching main.py output ─────────────────────────────────
+const months = ["Jan 22","Feb 22","Mar 22","Apr 22","May 22","Jun 22","Jul 22","Aug 22","Sep 22","Oct 22","Nov 22","Dec 22",
+                "Jan 23","Feb 23","Mar 23","Apr 23","May 23","Jun 23","Jul 23","Aug 23","Sep 23","Oct 23","Nov 23","Dec 23",
+                "Jan 24","Feb 24","Mar 24","Apr 24","May 24","Jun 24","Jul 24","Aug 24","Sep 24","Oct 24","Nov 24","Dec 24"];
+
+function generateSeries(base, drift, vol, seasonality) {
+  let vals = [], v = base;
+  for (let i = 0; i < 36; i++) {
+    v += drift + (Math.random() - 0.5) * vol;
+    let m = (i % 12) + 1;
+    let s = seasonality[m] || 1;
+    vals.push(Math.round(v * s));
+  }
+  return vals;
+}
+
+const categories = {
+  "Food & Grocery":      generateSeries(4200, 8,  300, {12:1.35, 1:0.82, 6:1.08, 7:1.08}),
+  "Clothing & Footwear": generateSeries(1800, 5,  400, {12:1.35, 1:0.82}),
+  "Electronics":         generateSeries(2100, 3,  500, {12:1.35, 1:0.82}),
+  "Home & Garden":       generateSeries(1500, 6,  360, {12:1.35, 1:0.82, 6:1.08, 7:1.08}),
+  "Health & Beauty":     generateSeries(980,  4,  180, {12:1.35, 1:0.82}),
+  "Sports & Leisure":    generateSeries(760,  3,  220, {12:1.35, 1:0.82, 6:1.08, 7:1.08}),
+};
+
+const catColours = ["#2E86AB","#A23B72","#F18F01","#E07A5F","#81B29A","#3D405B"];
+
+const total = months.map((_,i) => Object.values(categories).reduce((s,c) => s+c[i], 0));
+
+// KPIs
+document.getElementById("kpi-latest").textContent = "£" + (total[35]/1000).toFixed(0) + "m";
+const yoy = ((total[35] - total[23]) / total[23] * 100).toFixed(1);
+document.getElementById("kpi-yoy").textContent = (yoy > 0 ? "+" : "") + yoy + "%";
+
+const COLORS = { grid: "#e8e8e8", text: "#555" };
+const shortMonths = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+// ── Chart 1: Trend line ────────────────────────────────────────────────────
+new Chart(document.getElementById("trendChart"), {
+  type: "line",
+  data: {
+    labels: months,
+    datasets: [{
+      label: "Total Sales",
+      data: total,
+      borderColor: "#2E86AB",
+      backgroundColor: "rgba(46,134,171,0.1)",
+      fill: true,
+      tension: 0.4,
+      pointRadius: 2,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { maxTicksLimit: 12, font: { size: 10 } } },
+      y: { ticks: { callback: v => "£"+Math.round(v/1000)+"m", font: { size: 10 } } }
+    }
+  }
+});
+
+// ── Chart 2: Pie ───────────────────────────────────────────────────────────
+const sales2024 = Object.entries(categories).map(([k,v]) => v.slice(24).reduce((a,b)=>a+b,0));
+new Chart(document.getElementById("pieChart"), {
+  type: "doughnut",
+  data: {
+    labels: Object.keys(categories),
+    datasets: [{ data: sales2024, backgroundColor: catColours }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: "bottom", labels: { font: { size: 9 }, boxWidth: 10 } } }
+  }
+});
+
+// ── Chart 3: YoY ──────────────────────────────────────────────────────────
+new Chart(document.getElementById("yoyChart"), {
+  type: "line",
+  data: {
+    labels: shortMonths,
+    datasets: [
+      { label: "2022", data: total.slice(0,12),  borderColor: "#A23B72", tension: 0.4, pointRadius: 2 },
+      { label: "2023", data: total.slice(12,24), borderColor: "#F18F01", tension: 0.4, pointRadius: 2 },
+      { label: "2024", data: total.slice(24,36), borderColor: "#2E86AB", tension: 0.4, pointRadius: 3, borderWidth: 2 },
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { font: { size: 9 } } } },
+    scales: {
+      x: { ticks: { font: { size: 9 } } },
+      y: { ticks: { callback: v => "£"+Math.round(v/1000)+"m", font: { size: 9 } } }
+    }
+  }
+});
+
+// ── Chart 4: Stacked bar ──────────────────────────────────────────────────
+new Chart(document.getElementById("stackedChart"), {
+  type: "bar",
+  data: {
+    labels: months,
+    datasets: Object.entries(categories).map(([name, vals], i) => ({
+      label: name,
+      data: vals,
+      backgroundColor: catColours[i],
+      stack: "stack",
+    }))
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { stacked: true, ticks: { maxTicksLimit: 12, font: { size: 9 } } },
+      y: { stacked: true, ticks: { callback: v => "£"+Math.round(v/1000)+"m", font: { size: 9 } } }
+    }
+  }
+});
+</script>
+</body>
+</html>
