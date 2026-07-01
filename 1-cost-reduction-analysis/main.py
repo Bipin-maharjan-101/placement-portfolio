@@ -11,7 +11,6 @@ Tools:  Python, Pandas, Matplotlib
 
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import numpy as np
 from datetime import datetime
 
@@ -57,24 +56,22 @@ def calculate_yoy_growth(df):
 
 def identify_overspend(df, threshold_pct=3.0):
     """Flag departments consistently overspending their budget."""
-    overspend = df[
+    return df[
         (df["Variance_Pct_2022"] > threshold_pct) |
         (df["Variance_Pct_2023"] > threshold_pct) |
         (df["Variance_Pct_2024"] > threshold_pct)
     ][["Department", "Variance_Pct_2022", "Variance_Pct_2023", "Variance_Pct_2024"]]
-    return overspend
 
 def estimate_savings(df):
     """Estimate potential savings if departments hit budget targets."""
-    df["Potential_Saving_2024"] = df["Actual_2024"] - df["Budget_2024"]
-    df["Potential_Saving_2024"] = df["Potential_Saving_2024"].clip(lower=0)
+    df["Potential_Saving_2024"] = (df["Actual_2024"] - df["Budget_2024"]).clip(lower=0)
     return df
 
 # ── 3. RUN ANALYSIS ────────────────────────────────────────────────────────────
 
 df = calculate_variance(df)
 df = calculate_yoy_growth(df)
-df = identify_overspend(df)
+overspend_depts = identify_overspend(df)
 df = estimate_savings(df)
 
 # ── 4. PRINT REPORT ───────────────────────────────────────────────────────────
@@ -95,11 +92,6 @@ for year in [2022, 2023, 2024]:
 
 print("\n📌 DEPARTMENTS WITH CONSISTENT OVERSPEND (>3% above budget)")
 print("-" * 65)
-overspend_depts = df[
-    (df["Variance_Pct_2022"] > 3) |
-    (df["Variance_Pct_2023"] > 3) |
-    (df["Variance_Pct_2024"] > 3)
-]
 for _, row in overspend_depts.iterrows():
     print(f"  {row['Department']:<20} 2022: {row['Variance_Pct_2022']:+.1f}%  "
           f"2023: {row['Variance_Pct_2023']:+.1f}%  2024: {row['Variance_Pct_2024']:+.1f}%")
@@ -136,9 +128,9 @@ fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 fig.suptitle("Cost Reduction Analysis — 3-Year Overview", fontsize=15, fontweight="bold", y=1.01)
 
 colours = ["#2E86AB", "#A23B72", "#F18F01"]
-years   = [2022, 2023, 2024]
+years = [2022, 2023, 2024]
 
-# Chart 1: Budget vs Actual per year
+# Chart 1: Actual costs by year
 ax1 = axes[0, 0]
 x = np.arange(len(df["Department"]))
 width = 0.35
@@ -170,6 +162,7 @@ ax3.bar(savings_df["Department"], savings_df["Potential_Saving_2024"] / 1000,
         color="#E07A5F", alpha=0.9, edgecolor="white")
 ax3.set_title("Potential 2024 Savings if Budget Met (£000s)")
 ax3.set_ylabel("Savings (£000s)")
+ax3.set_xticks(np.arange(len(savings_df["Department"])))
 ax3.set_xticklabels(savings_df["Department"], rotation=30, ha="right", fontsize=8)
 ax3.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"£{v:.0f}k"))
 
@@ -182,6 +175,7 @@ ax4.plot(df["Department"], df["YoY_Growth_24"], marker="s", label="2023→2024",
 ax4.axhline(0, color="grey", linewidth=0.6, linestyle="--")
 ax4.set_title("Year-on-Year Cost Growth (%)")
 ax4.set_ylabel("Growth (%)")
+ax4.set_xticks(np.arange(len(df["Department"])))
 ax4.set_xticklabels(df["Department"], rotation=30, ha="right", fontsize=8)
 ax4.legend(fontsize=8)
 
